@@ -169,8 +169,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	if s := <-status; s != nil {
 		e.serverStart.Set(float64(s.Icestats.ServerStart.Time().Unix()))
 		for _, source := range s.Icestats.Source {
-			e.listeners.WithLabelValues(source.ServerType).Set(float64(source.Listeners))
-			e.streamStart.WithLabelValues(source.ServerType).Set(float64(source.StreamStart.Time().Unix()))
+			e.listeners.WithLabelValues(source.ServerType).Add(float64(source.Listeners))
+			e.streamStart.WithLabelValues(source.ServerType).Add(float64(source.StreamStart.Time().Unix()))
 		}
 	}
 
