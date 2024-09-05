@@ -20,4 +20,4 @@ FROM gcr.io/distroless/base
 COPY --from=golang /bin/app /application
 
 USER nobody
-ENTRYPOINT ["/icecast_exporter"]
+ENTRYPOINT ["/application"]
