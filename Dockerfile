@@ -1,18 +1,23 @@
-FROM golang:1.22.6-alpine AS build
+FROM golang:1.22.6-alpine AS golang
 
-WORKDIR /go/src/icecast_exporter
+WORKDIR /src
 
 RUN apk add --no-cache git
 
-COPY . /go/src/icecast_exporter
+COPY . /src
 
 RUN go get .
+RUN ls -la
+RUN CGO_ENABLED=0 go build -installsuffix 'static' \
+    -o /bin/app /src/icecast_exporter.go
+
+RUN ls -la
+RUN ls -la /bin
 
 # Final stage
-FROM alpine:3.20
+FROM gcr.io/distroless/base
 
-COPY --from=build /go/bin/icecast_exporter /icecast_exporter
+COPY --from=golang /bin/app /application
 
-EXPOSE 9090
 USER nobody
 ENTRYPOINT ["/icecast_exporter"]
