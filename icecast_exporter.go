@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -190,7 +190,7 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 	resp, err := e.client.Get(e.URI)
 	if err != nil {
 		e.up.Set(0)
-		log.Fatalf("Can't scrape Icecast: %v", err)
+		log.Printf("Can't scrape Icecast: %v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -198,10 +198,10 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 
 	// Copy response body into intermediate buffer,
 	// so we can deserialize twice
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		e.up.Set(0)
-		log.Fatalf("Can't ready response body: %v", err)
+		log.Printf("Can't ready response body: %v", err)
 		return
 	}
 
@@ -216,7 +216,7 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 		var s2 IcecastStatusSingle
 		err = json.NewDecoder(buf).Decode(&s2)
 		if err != nil {
-			log.Fatalf("Can't read JSON: %v", err)
+			log.Printf("Can't read JSON: %v", err)
 			e.jsonParseFailures.Inc()
 			return
 		}
@@ -258,11 +258,13 @@ func main() {
 	})
 
 	go func() {
-		log.Fatalf("Starting Server: %s", *listenAddress)
-		log.Fatal(http.ListenAndServe(*listenAddress, nil))
+		log.Printf("Starting Server: %s", *listenAddress)
+		if err := http.ListenAndServe(*listenAddress, nil); err != nil {
+			log.Fatalf("Error starting HTTP server: %v", err)
+		}
 	}()
 
 	s := <-sigchan
-	log.Fatalf("Received %v, terminating", s)
+	log.Printf("Received %v, terminating", s)
 	os.Exit(0)
 }
