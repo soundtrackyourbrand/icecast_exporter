@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/log"
 )
 
 const (
@@ -65,19 +65,18 @@ type IcecastStatusSource struct {
 // JSON structure if zero or multiple streams active
 type IcecastStatus struct {
 	Icestats struct {
-		ServerStart ISO8601					`json:"server_start_iso8601"`
-		Source      []IcecastStatusSource 	`json:"source,omitifempty"`
+		ServerStart ISO8601               `json:"server_start_iso8601"`
+		Source      []IcecastStatusSource `json:"source,omitifempty"`
 	} `json:"icestats"`
 }
 
 // JSON structure if exactly one stream active
 type IcecastStatusSingle struct {
 	Icestats struct {
-		ServerStart ISO8601 				`json:"server_start_iso8601"`
-		Source      IcecastStatusSource 	`json:"source"`
+		ServerStart ISO8601             `json:"server_start_iso8601"`
+		Source      IcecastStatusSource `json:"source"`
 	} `json:"icestats"`
 }
-
 
 // Exporter collects Icecast stats from the given URI and exports them using
 // the prometheus metrics package.
@@ -191,21 +190,21 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 	resp, err := e.client.Get(e.URI)
 	if err != nil {
 		e.up.Set(0)
-		log.Errorf("Can't scrape Icecast: %v", err)
+		log.Fatalf("Can't scrape Icecast: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 	e.up.Set(1)
-	
+
 	// Copy response body into intermediate buffer,
 	// so we can deserialize twice
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		e.up.Set(0)
-		log.Errorf("Can't ready response body: %v", err)
+		log.Fatalf("Can't ready response body: %v", err)
 		return
 	}
-	
+
 	buf := bytes.NewBuffer(bodyBytes)
 	var s IcecastStatus
 	err = json.NewDecoder(buf).Decode(&s)
@@ -217,11 +216,11 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 		var s2 IcecastStatusSingle
 		err = json.NewDecoder(buf).Decode(&s2)
 		if err != nil {
-			log.Errorf("Can't read JSON: %v", err)
+			log.Fatalf("Can't read JSON: %v", err)
 			e.jsonParseFailures.Inc()
 			return
 		}
-		
+
 		// Copy over to staus object
 		s.Icestats.ServerStart = s2.Icestats.ServerStart
 		s.Icestats.Source = []IcecastStatusSource{s2.Icestats.Source}
@@ -232,7 +231,7 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 
 func main() {
 	var (
-		listenAddress    = flag.String("web.listen-address", ":9146", "Address to listen on for web interface and telemetry.")
+		listenAddress    = flag.String("web.listen-address", ":9090", "Address to listen on for web interface and telemetry.")
 		metricsPath      = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 		icecastScrapeURI = flag.String("icecast.scrape-uri", "http://localhost:8000/status-json.xsl", "URI on which to scrape Icecast.")
 		icecastTimeout   = flag.Duration("icecast.timeout", 5*time.Second, "Timeout for trying to get stats from Icecast.")
@@ -259,11 +258,11 @@ func main() {
 	})
 
 	go func() {
-		log.Infof("Starting Server: %s", *listenAddress)
+		log.Fatalf("Starting Server: %s", *listenAddress)
 		log.Fatal(http.ListenAndServe(*listenAddress, nil))
 	}()
 
 	s := <-sigchan
-	log.Infof("Received %v, terminating", s)
+	log.Fatalf("Received %v, terminating", s)
 	os.Exit(0)
 }
